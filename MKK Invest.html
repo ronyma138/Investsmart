@@ -1,0 +1,831 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>InvestSmart - 精確結算與實時持倉版</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .thin-scrollbar::-webkit-scrollbar { width: 4px; }
+        .thin-scrollbar::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 4px; }
+        .pulse-border { animation: pulseBorder 2s infinite; }
+        @keyframes pulseBorder { 0% { box-shadow: 0 0 0 0 rgba(249, 115, 22, 0.4); } 70% { box-shadow: 0 0 0 10px rgba(249, 115, 22, 0); } 100% { box-shadow: 0 0 0 0 rgba(249, 115, 22, 0); } }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-100 font-sans pb-24">
+
+    <nav class="border-b border-gray-800 p-4 flex justify-between items-center bg-gray-900 sticky top-0 z-50 shadow-md">
+        <div class="text-2xl font-bold text-blue-500">Invest<span class="text-white">Smart</span></div>
+        <div class="flex items-center space-x-4">
+            <div class="text-right">
+                <p class="text-gray-400 text-xs">專屬資產淨值 (HKD)</p>
+                <p class="text-xl font-mono text-green-400 font-bold" id="nav-net-worth">HK$0.00</p>
+            </div>
+            <button onclick="editMonthlyPlan()" class="bg-gray-800 hover:bg-gray-700 text-blue-400 p-2 rounded-lg border border-gray-700 transition-colors shadow-lg">
+                <i class="fas fa-sliders-h"></i>
+            </button>
+        </div>
+    </nav>
+
+    <main class="max-w-7xl mx-auto p-6 space-y-6">
+        
+        <section class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="bg-gray-800 p-5 rounded-2xl shadow-lg border border-gray-700">
+                <h3 class="text-sm text-gray-400 mb-1"><i class="fas fa-wallet mr-2"></i>當前總資產 (HKD)</h3>
+                <p class="text-3xl font-mono font-bold text-white mb-3" id="vault-total">HK$0.00</p>
+                <div class="text-xs text-gray-400 flex justify-between">
+                    <span>持倉市值: <span class="text-white font-mono" id="vault-holdings">HK$0.00</span></span>
+                    <span>可用現金: <span class="text-white font-mono" id="vault-cash">HK$0.00</span></span>
+                </div>
+            </div>
+
+            <div class="bg-gradient-to-br from-blue-900/40 to-gray-800 p-5 rounded-2xl shadow-lg border border-blue-500/30 relative overflow-hidden">
+                <div class="absolute top-0 right-0 bg-blue-600 text-white text-[10px] px-2 py-1 rounded-bl-lg font-bold">主動出擊</div>
+                <h3 class="text-sm text-blue-300 mb-1"><i class="fas fa-crosshairs mr-2"></i>主動操作現金池</h3>
+                <p class="text-2xl font-mono font-bold text-blue-400 mb-2" id="pool-active">HK$5,000.00</p>
+                <div class="w-full bg-gray-700 h-1.5 rounded-full mb-2"><div class="bg-blue-400 h-1.5 rounded-full" style="width: 100%"></div></div>
+                <p class="text-[10px] text-gray-400">每月基準注資: <span id="plan-active-amt" class="text-gray-200">HK$5,000</span></p>
+            </div>
+
+            <div class="bg-gradient-to-br from-indigo-900/40 to-gray-800 p-5 rounded-2xl shadow-lg border border-indigo-500/30 relative overflow-hidden">
+                <div class="absolute top-0 right-0 bg-indigo-600 text-white text-[10px] px-2 py-1 rounded-bl-lg font-bold">價值平均</div>
+                <h3 class="text-sm text-indigo-300 mb-1"><i class="fas fa-seedling mr-2"></i>定投現金池 (準備金)</h3>
+                <p class="text-2xl font-mono font-bold text-indigo-400 mb-2" id="pool-passive">HK$5,000.00</p>
+                <div class="w-full bg-gray-700 h-1.5 rounded-full mb-2"><div class="bg-indigo-400 h-1.5 rounded-full" style="width: 100%"></div></div>
+                <p class="text-[10px] text-gray-400">每月基準注資: <span id="plan-passive-amt" class="text-gray-200">HK$5,000</span></p>
+            </div>
+        </section>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            
+            <section class="space-y-4 flex flex-col h-full">
+                
+                <div id="thematic-event-container" class="bg-gradient-to-r from-orange-900/50 to-red-900/40 p-5 rounded-2xl border border-orange-500/60 shadow-lg mb-2 transition-all duration-500">
+                    <div class="flex justify-between items-center mb-3">
+                        <h2 class="text-lg font-bold text-orange-300"><i class="fas fa-bolt mr-2 text-yellow-400"></i>AI 突發催化劑雷達</h2>
+                        <button onclick="toggleEventHistory()" class="text-[10px] bg-orange-900/80 hover:bg-orange-700 text-orange-300 px-2 py-1 rounded border border-orange-500/50 transition-colors shadow-sm">
+                            <i class="fas fa-history"></i> 異動紀錄
+                        </button>
+                    </div>
+                    
+                    <div id="event-history-container" class="hidden mb-3 p-3 bg-gray-900/80 rounded-xl border border-orange-500/30 shadow-inner max-h-[250px] overflow-y-auto thin-scrollbar">
+                        <div class="flex justify-between items-center mb-2 border-b border-gray-700 pb-2">
+                            <h3 class="text-sm font-bold text-orange-300"><i class="fas fa-list-ul mr-1"></i>過往突發異動軌跡</h3>
+                            <button onclick="clearEventHistory()" class="text-[10px] text-red-400 hover:text-red-300 bg-gray-800 px-2 py-1 rounded">清空</button>
+                        </div>
+                        <div id="event-history-list" class="space-y-2"></div>
+                    </div>
+
+                    <div id="thematic-monitor">
+                        <div class="text-center py-4 text-xs text-orange-500/70"><i class="fas fa-satellite-dish mr-2"></i>全網監控中... 目前未發現突發異動，請隨時留意警報。</div>
+                    </div>
+                </div>
+
+                <div class="bg-gradient-to-r from-purple-900/40 to-blue-900/40 p-5 rounded-2xl border border-purple-500/40 shadow-lg mb-4">
+                    <div class="flex justify-between items-center mb-3">
+                        <h2 class="text-lg font-bold text-purple-300"><i class="fas fa-wind mr-2 text-pink-400"></i>AI 全市值板塊風向標</h2>
+                        <button onclick="toggleSectorHistory()" class="text-[10px] bg-purple-900/50 hover:bg-purple-800 text-purple-300 px-2 py-1 rounded border border-purple-500/30 transition-colors shadow-sm">
+                            <i class="fas fa-history"></i> 板塊紀錄
+                        </button>
+                    </div>
+                    
+                    <div id="sector-history-container" class="hidden mb-3 p-3 bg-gray-900/80 rounded-xl border border-purple-500/30 shadow-inner max-h-[250px] overflow-y-auto thin-scrollbar">
+                        <div class="flex justify-between items-center mb-2 border-b border-gray-700 pb-2">
+                            <h3 class="text-sm font-bold text-purple-300"><i class="fas fa-list-ul mr-1"></i>過往資金流向軌跡</h3>
+                            <button onclick="clearSectorHistory()" class="text-[10px] text-red-400 hover:text-red-300 bg-gray-800 px-2 py-1 rounded">清空</button>
+                        </div>
+                        <div id="sector-history-list" class="space-y-2"></div>
+                    </div>
+
+                    <div id="sector-monitor" class="bg-gray-900/50 p-4 rounded-xl border border-gray-700">
+                        <div class="text-center py-2 text-sm text-purple-400 animate-pulse"><i class="fas fa-spinner fa-spin mr-2"></i>正在提煉全球新聞與財報...</div>
+                    </div>
+                </div>
+
+                <div class="bg-gradient-to-br from-gray-800 to-gray-900 border border-blue-500/50 p-5 rounded-2xl shadow-[0_0_15px_rgba(59,130,246,0.2)] mb-4">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-lg font-bold text-blue-300"><i class="fas fa-globe-americas mr-2 text-blue-400"></i>SMC 跨市值聰明錢掃描</h2>
+                        <button onclick="toggleHistory()" class="text-xs bg-gray-800 hover:bg-gray-700 text-gray-300 px-2 py-1 rounded border border-gray-600 transition-colors shadow-sm">
+                            <i class="fas fa-history"></i> 掃描紀錄
+                        </button>
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-2 mb-4">
+                        <button onclick="scanGlobalMarkets('normal')" class="bg-gradient-to-r from-blue-700 to-indigo-700 hover:from-blue-600 hover:to-indigo-600 text-white py-2.5 rounded-lg text-sm font-bold transition-colors shadow-lg border border-blue-400/50 flex justify-center items-center">
+                            <i class="fas fa-rocket mr-2"></i> 常規勝率掃描
+                        </button>
+                        <button onclick="scanGlobalMarkets('high_rr')" class="bg-gradient-to-r from-red-700 to-pink-700 hover:from-red-600 hover:to-pink-600 text-white py-2.5 rounded-lg text-sm font-bold transition-colors shadow-lg border border-red-400/50 flex justify-center items-center">
+                            <i class="fas fa-bullseye mr-2"></i> 以小搏大 (高RR)
+                        </button>
+                    </div>
+
+                    <div id="scan-history-container" class="hidden mb-4 p-3 bg-gray-800/90 rounded-xl border border-gray-500 shadow-inner max-h-[350px] overflow-y-auto thin-scrollbar">
+                        <div class="flex justify-between items-center mb-2 border-b border-gray-700 pb-2">
+                            <h3 class="text-sm font-bold text-gray-200"><i class="fas fa-clock mr-1 text-blue-400"></i>過往掃描入場紀錄</h3>
+                            <button onclick="clearHistory()" class="text-xs text-red-400 hover:text-red-300 bg-gray-900 px-2 py-1 rounded">清空紀錄</button>
+                        </div>
+                        <div id="history-list" class="space-y-3"></div>
+                    </div>
+
+                    <div id="scanner-status" class="hidden text-center py-4 text-sm text-blue-400 animate-pulse bg-gray-900/50 rounded-lg border border-blue-900/50 mb-4">
+                        <i class="fas fa-circle-notch fa-spin mr-2"></i>正在掃描 Order Block 及分析財報消息...
+                    </div>
+
+                    <div id="scanner-results" class="space-y-3 max-h-[450px] overflow-y-auto thin-scrollbar pr-2">
+                        <div class="text-center p-4 text-xs text-gray-500 bg-gray-800/50 rounded-xl border border-dashed border-gray-600">
+                            點擊上方按鈕追蹤今日機構動向與財報機會。
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex justify-between items-center mt-6">
+                    <h2 class="text-xl font-bold"><i class="fas fa-star text-yellow-400 mr-2"></i>自選觀察名單 (雙核分析)</h2>
+                    <span id="update-status" class="text-xs text-gray-500">● 準備就緒</span>
+                </div>
+
+                <div id="category-tabs" class="flex space-x-2 overflow-x-auto no-scrollbar py-2 border-b border-gray-800"></div>
+
+                <div class="flex space-x-2 mt-2">
+                    <input type="text" id="symbol-input" placeholder="加入代碼 (例: RKLB, TSLA, 0700.HK)" class="w-full bg-gray-800 text-white px-4 py-3 rounded-xl border border-gray-700 focus:outline-none focus:border-blue-500 uppercase shadow-inner font-mono text-sm">
+                    <button onclick="addCustomStock()" class="bg-blue-600 hover:bg-blue-500 px-5 py-3 rounded-xl font-bold transition-colors shadow-lg"><i class="fas fa-plus"></i></button>
+                </div>
+                
+                <div id="stock-list" class="space-y-4 min-h-[150px] max-h-[600px] overflow-y-auto thin-scrollbar pr-2"></div>
+                
+                <div class="mt-8 pt-6 border-t border-gray-800">
+                    <h2 class="text-lg font-bold mb-4 text-gray-300"><i class="fas fa-newspaper mr-2 text-blue-400"></i>市場即時新聞與財報公佈</h2>
+                    <div id="news-list" class="space-y-3 h-[250px] overflow-y-auto thin-scrollbar pr-2"></div>
+                </div>
+            </section>
+
+            <section class="space-y-4">
+                <div class="flex justify-between items-center">
+                    <h2 class="text-xl font-bold"><i class="fas fa-sync-alt text-indigo-400 mr-2"></i>智能動態定投 (Smart DCA)</h2>
+                    <span class="text-xs bg-indigo-900/50 text-indigo-300 px-2 py-1 rounded">全天候核心配置</span>
+                </div>
+
+                <div class="bg-gradient-to-r from-gray-800 to-indigo-900/30 p-5 rounded-xl shadow-xl border border-indigo-500/30">
+                    <div class="flex justify-between items-center mb-3">
+                        <h3 class="text-sm font-bold text-gray-200"><i class="fas fa-chart-area mr-1 text-blue-400"></i>大市狀態與乘數分析</h3>
+                        <span class="text-green-400 text-xs font-bold bg-green-900/30 px-2 py-0.5 rounded border border-green-500/30" id="dca-market-status">分析中...</span>
+                    </div>
+                    <p class="text-xs text-gray-400 mb-4" id="dca-desc">正在結合 VOO/QQQM 技術波幅計算最佳定投比例...</p>
+                    <div class="bg-gray-900 p-3 rounded-lg border border-gray-700 flex justify-between items-center">
+                        <div><span class="block text-[10px] text-gray-500">本期建議定投乘數</span><span class="text-lg font-bold text-white font-mono" id="dca-multiplier">--</span></div>
+                        <div class="text-right"><span class="block text-[10px] text-gray-500">實際需投入 (HKD)</span><span class="text-xl font-bold text-indigo-400 font-mono" id="dca-actual-invest">--</span></div>
+                    </div>
+                </div>
+
+                <div class="bg-gray-800 rounded-xl overflow-hidden shadow-xl border border-gray-700 mt-4">
+                    <table class="w-full text-left text-sm"><thead class="bg-gray-700/30 text-gray-400 uppercase text-[10px]"><tr><th class="p-3">目標資產 (組合)</th><th class="p-3 text-right">建議金額</th><th class="p-3 text-center">一鍵買入</th></tr></thead><tbody class="divide-y divide-gray-700" id="dca-action-list"></tbody></table>
+                </div>
+
+                <div class="flex justify-between items-center mt-8">
+                    <h2 class="text-lg font-bold text-gray-300"><i class="fas fa-briefcase text-green-400 mr-2"></i>現有持倉總覽</h2>
+                    <div class="space-x-2">
+                        <span id="holdings-sync-status" class="text-[10px] text-green-400 opacity-0 transition-opacity"><i class="fas fa-sync fa-spin mr-1"></i>已更新</span>
+                        <button onclick="addHolding()" class="text-xs bg-gray-800 hover:bg-gray-700 px-3 py-1 rounded text-blue-400 transition-colors border border-gray-700 shadow-md"><i class="fas fa-plus mr-1"></i>手動新增</button>
+                    </div>
+                </div>
+                <div class="bg-gray-800 rounded-xl overflow-hidden shadow-xl border border-gray-700">
+                    <table class="w-full text-left text-sm">
+                        <thead class="bg-gray-700/30 text-gray-400 uppercase text-[10px]">
+                            <tr>
+                                <th class="p-3">資產</th>
+                                <th class="p-3 text-right">持倉 / 均價</th>
+                                <th class="p-3 text-right">現值 (原幣/HKD)</th>
+                                <th class="p-3 text-right pr-4">盈虧</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-700" id="holdings-list"></tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <script>
+        const FINNHUB_API_KEY = 'd74f6epr01qno4q1hm1gd74f6epr01qno4q1hm20'; 
+        const USD_TO_HKD = 7.8; 
+
+        function formatPrice(price) {
+            if (price === undefined || price === null || isNaN(price)) return "0.00";
+            if (price < 0.00001) return price.toFixed(8);
+            if (price < 0.01) return price.toFixed(6);
+            if (price < 1) return price.toFixed(4);
+            return price.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        }
+
+        // ================= 💾 資料結構初始化 =================
+        let myVault = JSON.parse(localStorage.getItem('investSmart_vault')) || { monthlyInjection: 10000, activePct: 50, passivePct: 50, cashActive: 5000, cashPassive: 5000 };
+        let myHoldings = JSON.parse(localStorage.getItem('investSmart_holdings')) || [ { symbol: 'BTCUSDT', type: 'CRYPTO', shares: 0.05, avgPrice: 62000 } ];
+        let scanHistory = JSON.parse(localStorage.getItem('investSmart_scan_history')) || [];
+        let sectorHistory = JSON.parse(localStorage.getItem('investSmart_sector_history')) || [];
+        let eventHistory = JSON.parse(localStorage.getItem('investSmart_event_history')) || []; 
+
+        let myDCAPortfolio = JSON.parse(localStorage.getItem('investSmart_dca_portfolio'));
+        if (!myDCAPortfolio || myDCAPortfolio.some(f => f.symbol === 'SPY' || f.percentage === 60)) {
+            myDCAPortfolio = [ { symbol: 'VOO', name: '標普500 (核心底倉)', percentage: 40, type: 'US' }, { symbol: 'QQQM', name: '納指100 (科技增長)', percentage: 30, type: 'US' }, { symbol: 'SCHD', name: '紅利增長 (防守收息)', percentage: 20, type: 'US' }, { symbol: 'IBIT', name: '比特幣ETF (衛星尋寶)', percentage: 10, type: 'US' } ];
+        }
+
+        let portfolios = JSON.parse(localStorage.getItem('investSmart_portfolios'));
+        if (!portfolios || !portfolios["💎 冷門尋寶"]) {
+            portfolios = portfolios || { "⭐ AI 十大精選": [ {symbol:'NVDA',type:'US'}, {symbol:'TSLA',type:'US'}, {symbol:'AAPL',type:'US'}, {symbol:'MSFT',type:'US'}, {symbol:'BTCUSDT',type:'CRYPTO'} ] };
+            portfolios["⚠️ 高風險高回報"] = portfolios["⚠️ 高風險高回報"] || [ {symbol:'SOXL',type:'US'}, {symbol:'PEPEUSDT',type:'CRYPTO'} ];
+            portfolios["💎 冷門尋寶"] = [ {symbol:'RKLB', type:'US', name:'火箭實驗室'}, {symbol:'SOUN', type:'US', name:'AI語音'}, {symbol:'FETUSDT', type:'CRYPTO', name:'AI概念幣'}, {symbol:'0772.HK', type:'HK', name:'閱文集團'} ];
+        }
+        
+        let activeCategory = "⭐ AI 十大精選";
+        let globalPricesCache = {}; let globalLatestNews = [];
+
+        function saveData() { 
+            localStorage.setItem('investSmart_vault', JSON.stringify(myVault)); 
+            localStorage.setItem('investSmart_holdings', JSON.stringify(myHoldings)); 
+            localStorage.setItem('investSmart_portfolios', JSON.stringify(portfolios)); 
+            localStorage.setItem('investSmart_scan_history', JSON.stringify(scanHistory));
+            localStorage.setItem('investSmart_sector_history', JSON.stringify(sectorHistory));
+            localStorage.setItem('investSmart_event_history', JSON.stringify(eventHistory));
+        }
+
+        // ================= 💰 金庫 UI & 動態 DCA =================
+        function updateVaultUI(latestPrices = {}) {
+            const activeLimit = myVault.monthlyInjection * (myVault.activePct / 100); const passiveLimit = myVault.monthlyInjection * (myVault.passivePct / 100);
+            document.getElementById('pool-active').innerText = 'HK$' + myVault.cashActive.toLocaleString('en-US', {minimumFractionDigits:2});
+            document.getElementById('plan-active-amt').innerText = 'HK$' + activeLimit.toLocaleString('en-US');
+            document.getElementById('pool-passive').innerText = 'HK$' + myVault.cashPassive.toLocaleString('en-US', {minimumFractionDigits:2});
+            document.getElementById('plan-passive-amt').innerText = 'HK$' + passiveLimit.toLocaleString('en-US');
+
+            let totalHoldingsValueHKD = 0; const holdingsContainer = document.getElementById('holdings-list'); holdingsContainer.innerHTML = '';
+            
+            myHoldings.forEach((h, i) => {
+                // 🌟 核心修復：正確提取價錢數字，避免 Object 錯誤
+                const priceData = latestPrices[h.symbol];
+                const currentPriceNative = (priceData && priceData.price !== undefined) ? priceData.price : h.avgPrice; 
+                
+                const currentValueNative = h.shares * currentPriceNative; 
+                const costValueNative = h.shares * h.avgPrice;
+                const profitNative = currentValueNative - costValueNative; 
+                const profitPct = costValueNative > 0 ? (profitNative / costValueNative) * 100 : 0;
+                
+                const isUSD = (h.type === 'US' || h.type === 'CRYPTO'); 
+                const currentValueHKD = isUSD ? (currentValueNative * USD_TO_HKD) : currentValueNative;
+                totalHoldingsValueHKD += currentValueHKD;
+
+                const curSym = isUSD ? 'US$' : 'HK$'; 
+                const pColor = profitNative >= 0 ? 'text-green-400' : 'text-red-400';
+                
+                holdingsContainer.innerHTML += `
+                    <tr class="hover:bg-gray-750 transition-colors group">
+                        <td class="p-3">
+                            <span class="font-bold text-white block">${h.symbol}</span>
+                            <button onclick="removeHolding(${i})" class="text-red-500 opacity-0 group-hover:opacity-100 transition-opacity text-[10px] mt-0.5"><i class="fas fa-trash"></i> 賣出</button>
+                        </td>
+                        <td class="p-3 text-right">
+                            <span class="block text-gray-200">${h.shares}</span>
+                            <span class="text-[10px] text-gray-500">@ ${curSym}${formatPrice(h.avgPrice)}</span>
+                        </td>
+                        <td class="p-3 text-right">
+                            <span class="block font-mono text-blue-300">${curSym}${formatPrice(currentValueNative)}</span>
+                            <span class="text-[10px] text-gray-500">HK$${currentValueHKD.toLocaleString('en-US', {maximumFractionDigits:0})}</span>
+                        </td>
+                        <td class="p-3 text-right pr-4">
+                            <span class="block text-sm font-mono ${pColor}">${profitNative>=0?'+':''}${curSym}${formatPrice(Math.abs(profitNative))}</span>
+                            <span class="text-[10px] ${pColor} font-bold">${profitNative>=0?'+':''}${profitPct.toFixed(2)}%</span>
+                        </td>
+                    </tr>`;
+            });
+            const netWorthHKD = myVault.cashActive + myVault.cashPassive + totalHoldingsValueHKD;
+            document.getElementById('vault-holdings').innerText = 'HK$' + totalHoldingsValueHKD.toLocaleString('en-US', {maximumFractionDigits:0});
+            document.getElementById('vault-cash').innerText = 'HK$' + (myVault.cashActive + myVault.cashPassive).toLocaleString('en-US', {maximumFractionDigits:0});
+            document.getElementById('vault-total').innerText = 'HK$' + netWorthHKD.toLocaleString('en-US', {maximumFractionDigits:0});
+            document.getElementById('nav-net-worth').innerText = 'HK$' + netWorthHKD.toLocaleString('en-US', {maximumFractionDigits:0});
+            renderSmartDCA(passiveLimit, latestPrices);
+        }
+
+        // 🌟 獨立背景刷新持倉功能 (解決右邊唔 update 問題)
+        async function refreshHoldingsPrices() {
+            if (myHoldings.length === 0) return;
+            const fetchPromises = myHoldings.map(h => {
+                if (h.type === 'US') return fetchUSStock(h.symbol);
+                if (h.type === 'CRYPTO') return fetchCrypto(h.symbol);
+                if (h.type === 'HK') return fetchHKStock(h.symbol);
+            });
+            await Promise.all(fetchPromises); // 更新全球緩存 globalPricesCache
+            updateVaultUI(globalPricesCache);
+            
+            // 顯示小提示
+            const syncIcon = document.getElementById('holdings-sync-status');
+            if(syncIcon) {
+                syncIcon.style.opacity = '1';
+                setTimeout(() => { syncIcon.style.opacity = '0'; }, 2000);
+            }
+        }
+
+        function renderSmartDCA(baseDCAAmountHKD, latestPrices) {
+            let vooData = latestPrices['VOO']; let qqqmData = latestPrices['QQQM'];
+            let vooDp = vooData ? vooData.dp : 0; let qqqmDp = qqqmData ? qqqmData.dp : 0; let avgDp = (vooDp + qqqmDp) / 2; 
+            
+            let usagePct = 1.0; let marketText = "市場平穩 (區間震盪)"; let marketDesc = "大市方向未明。系統建議維持基準定投，平穩累積核心資產。"; let statusColor = "text-gray-300";
+
+            if (avgDp <= -1.0) { usagePct = 1.2; marketText = "大盤回調 (估值偏低)"; statusColor = "text-green-400"; marketDesc = "AI 偵測到大盤回調。此時定投能以更低成本獲取更多份額，建議果斷啟動【加倍定投 (1.2x)】。"; } 
+            else if (avgDp >= 1.5) { usagePct = 0.8; marketText = "市場過熱 (高位防守)"; statusColor = "text-yellow-400"; marketDesc = "大市短線急升，追高風險增加。建議啟動【防守定投 (0.8x)】，保留資金作為股災子彈。"; }
+
+            const actualInvestAmountHKD = baseDCAAmountHKD * usagePct;
+            document.getElementById('dca-market-status').className = `${statusColor} text-xs font-bold bg-gray-900/50 px-2 py-0.5 rounded border border-gray-600`;
+            document.getElementById('dca-market-status').innerText = marketText;
+            document.getElementById('dca-multiplier').innerText = `${usagePct}x`;
+            document.getElementById('dca-actual-invest').innerText = `HK$${actualInvestAmountHKD.toLocaleString('en-US')}`;
+            document.getElementById('dca-desc').innerHTML = marketDesc;
+
+            const actionList = document.getElementById('dca-action-list'); actionList.innerHTML = '';
+            myDCAPortfolio.forEach((fund) => {
+                const allocateAmountHKD = actualInvestAmountHKD * (fund.percentage / 100);
+                let displayAmount = `HK$${allocateAmountHKD.toLocaleString('en-US')}`;
+                if (fund.type === 'US') displayAmount = `<span class="block font-mono font-bold text-blue-400">HK$${allocateAmountHKD.toLocaleString('en-US')}</span><span class="text-[10px] text-gray-500">約 US$${(allocateAmountHKD/USD_TO_HKD).toLocaleString('en-US', {maximumFractionDigits:1})}</span>`;
+                const canAfford = myVault.cashPassive >= allocateAmountHKD;
+                const btnState = canAfford ? `<button onclick="executeDCA('${fund.symbol}', ${allocateAmountHKD}, '${fund.type}')" class="bg-indigo-600/30 text-indigo-400 hover:bg-indigo-600 hover:text-white border border-indigo-500/50 px-3 py-1 rounded text-xs transition-colors font-bold shadow-md"><i class="fas fa-bolt mr-1"></i>買入</button>` : `<span class="text-xs text-red-400">餘額不足</span>`;
+                actionList.innerHTML += `<tr class="hover:bg-gray-750 transition-colors"><td class="p-3"><span class="font-bold text-white block">${fund.symbol}</span><span class="text-[10px] text-gray-400">${fund.name} (${fund.percentage}%)</span></td><td class="p-3 text-right">${displayAmount}</td><td class="p-3 text-center">${btnState}</td></tr>`;
+            });
+        }
+
+        async function executeDCA(symbol, amountHKD, type) {
+            if(myVault.cashPassive < amountHKD) { alert("定投現金池餘額不足！"); return; }
+            let priceData = globalPricesCache[symbol];
+            let price = priceData ? priceData.price : null;
+            if (!price) {
+                if(type==='US') { const r = await fetchUSStock(symbol); if(r) price = r.price; }
+                else if(type==='CRYPTO') { const r = await fetchCrypto(symbol); if(r) price = r.price; }
+                else { const r = await fetchHKStock(symbol); if(r) price = r.price; }
+            }
+            if (!price) { alert(`無法獲取 ${symbol} 最新報價，請稍後再試。`); return; }
+
+            const curSym = type === 'HK' ? 'HK$' : 'US$'; const priceMsg = formatPrice(price);
+            if(confirm(`確定動用 定投池 HK$${amountHKD.toLocaleString()} 以現價 (${curSym}${priceMsg}) 買入 ${symbol} 嗎？`)) {
+                let shares = 0;
+                if (type === 'US' || type === 'CRYPTO') { shares = parseFloat(((amountHKD / USD_TO_HKD) / price).toFixed(6)); } 
+                else { shares = Math.floor(amountHKD / price); if (shares === 0) { alert(`金額不足以買入 1 股 ${symbol}`); return; } }
+
+                myVault.cashPassive -= amountHKD;
+                let existing = myHoldings.find(h => h.symbol === symbol);
+                if (existing) { const totalCostNative = (existing.shares * existing.avgPrice) + (shares * price); existing.shares += shares; existing.avgPrice = totalCostNative / existing.shares; } 
+                else myHoldings.push({ symbol, type, shares, avgPrice: price });
+
+                saveData(); updateVaultUI(globalPricesCache); alert(`✅ 成功定投買入 ${shares} 股 ${symbol}！已更新至持倉總覽。`);
+            }
+        }
+
+        function quickAddHolding(symbol, type, suggestedPrice) {
+            let shares = prompt(`【主動操作】你打算買入幾多股/粒 ${symbol}?`); 
+            if(!shares || isNaN(shares) || shares <= 0) return;
+            
+            let curMsg = type === 'HK' ? '港幣 (HKD)' : '美金 (USD)';
+            let actualPrice = prompt(`請確認成交價 (${curMsg}):`, suggestedPrice); 
+            if(!actualPrice || isNaN(actualPrice) || actualPrice <= 0) return;
+            
+            shares = parseFloat(shares); actualPrice = parseFloat(actualPrice);
+            let costNative = shares * actualPrice;
+            let costHKD = (type === 'US' || type === 'CRYPTO') ? costNative * USD_TO_HKD : costNative;
+            
+            if (myVault.cashActive < costHKD) {
+                if(!confirm(`⚠️ 注意：你嘅「主動操作現金池」餘額不足！(尚欠 HK$${(costHKD - myVault.cashActive).toLocaleString('en-US', {maximumFractionDigits:0})})\n\n是否強制透支買入？(現金池將會顯示負數)`)) return;
+            }
+            
+            myVault.cashActive -= costHKD;
+            let existing = myHoldings.find(h => h.symbol === symbol);
+            if (existing) {
+                const totalCostNative = (existing.shares * existing.avgPrice) + (shares * actualPrice);
+                existing.shares += shares; existing.avgPrice = totalCostNative / existing.shares;
+            } else { myHoldings.push({ symbol: symbol, type: type, shares: shares, avgPrice: actualPrice }); }
+            
+            saveData(); 
+            
+            // 立即背景 Fetch 最新價，保證右邊即刻識更新
+            if(type === 'US') fetchUSStock(symbol).then(()=>updateVaultUI(globalPricesCache));
+            else if(type === 'CRYPTO') fetchCrypto(symbol).then(()=>updateVaultUI(globalPricesCache));
+            else fetchHKStock(symbol).then(()=>updateVaultUI(globalPricesCache));
+            
+            updateVaultUI(globalPricesCache);
+            alert(`✅ 成功將 ${shares} 股 ${symbol} 加入持倉總覽！\n已從「主動操作現金池」扣除 HK$${costHKD.toLocaleString('en-US', {maximumFractionDigits:0})}`);
+        }
+
+        function editMonthlyPlan() {
+            let injection = prompt("輸入每月基準投入閒錢總額 (HKD):", myVault.monthlyInjection); if (!injection || isNaN(injection)) return;
+            let actPct = prompt("其中幾多 % 想放入「主動炒股」？", myVault.activePct); if (!actPct || isNaN(actPct)) return;
+            myVault.monthlyInjection = parseFloat(injection); myVault.activePct = parseFloat(actPct); myVault.passivePct = 100 - myVault.activePct;
+            
+            // 重新計算比例，並直接覆蓋餘額 (或者只加入差額，為簡單起見此處不覆蓋舊有現金，只更新設定)
+            alert("✅ 比例設定已更新！下個月注資將按新比例分配。");
+            saveData(); updateVaultUI(globalPricesCache);
+        }
+
+        function addHolding() {
+            let symbol = prompt("輸入代碼 (例 AAPL, BTCUSDT, 0700.HK):"); if(!symbol) return; symbol = symbol.toUpperCase();
+            if(symbol === 'BTC' || symbol === 'ETH') symbol += 'USDT';
+            let type = symbol.includes('.HK')?'HK':(symbol.includes('USDT')?'CRYPTO':'US');
+            let curMsg = type === 'HK' ? '港幣 (HKD)' : '美金 (USD)';
+            let shares = prompt(`持有幾多股/粒 ${symbol}?`); if(!shares || isNaN(shares)) return;
+            let avgPrice = prompt(`平均買入價 (${curMsg})?`); if(!avgPrice || isNaN(avgPrice)) return;
+            
+            myHoldings.push({ symbol: symbol, type: type, shares: parseFloat(shares), avgPrice: parseFloat(avgPrice) });
+            saveData(); 
+            
+            if(type === 'US') fetchUSStock(symbol).then(()=>updateVaultUI(globalPricesCache));
+            else if(type === 'CRYPTO') fetchCrypto(symbol).then(()=>updateVaultUI(globalPricesCache));
+            else fetchHKStock(symbol).then(()=>updateVaultUI(globalPricesCache));
+            updateVaultUI(globalPricesCache);
+        }
+
+        function removeHolding(index) { if(confirm("確定賣出/刪除此持倉紀錄？")) { myHoldings.splice(index, 1); saveData(); updateVaultUI(globalPricesCache); } }
+
+        function renderCategories() {
+            const tabsContainer = document.getElementById('category-tabs'); tabsContainer.innerHTML = '';
+            Object.keys(portfolios).forEach(cat => {
+                const isActive = cat === activeCategory; 
+                let activeStyle = isActive ? 'bg-blue-600 text-white shadow-md' : 'bg-gray-800 text-gray-400 hover:bg-gray-700 border border-gray-700';
+                if (cat.includes('高風險') && isActive) activeStyle = 'bg-red-600 text-white shadow-md shadow-red-900/50';
+                else if (cat.includes('高風險')) activeStyle = 'bg-gray-800 text-red-400 border border-red-900/30';
+                else if (cat.includes('尋寶') && isActive) activeStyle = 'bg-purple-600 text-white shadow-md shadow-purple-900/50';
+                else if (cat.includes('尋寶')) activeStyle = 'bg-gray-800 text-purple-400 border border-purple-900/30';
+
+                const deleteBtn = (!cat.includes("AI") && !cat.includes("高風險") && !cat.includes("尋寶") && isActive) ? `<i class="fas fa-times ml-2 hover:text-red-400" onclick="event.stopPropagation(); deleteCategory('${cat}')"></i>` : '';
+                tabsContainer.innerHTML += `<button onclick="activeCategory='${cat}'; renderCategories(); loadRealMarketData();" class="${activeStyle} px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap flex items-center transition-colors border border-transparent">${cat} ${deleteBtn}</button>`;
+            });
+            tabsContainer.innerHTML += `<button onclick="addNewCategory()" class="bg-gray-800 text-blue-400 px-3 py-1.5 rounded-full text-xs font-bold hover:bg-gray-700 transition-colors border border-gray-700"><i class="fas fa-plus"></i></button>`;
+        }
+        function addNewCategory() { const name = prompt("新分類:"); if (name && !portfolios[name]) { portfolios[name] = []; savePortfolios(); switchCategory(name); } }
+        function deleteCategory(catName) { if(confirm(`刪除「${catName}」？`)) { delete portfolios[catName]; saveData(); activeCategory="⭐ AI 十大精選"; renderCategories(); loadRealMarketData(); } }
+        function deleteStock(symbol) { portfolios[activeCategory] = portfolios[activeCategory].filter(s => s.symbol !== symbol); saveData(); loadRealMarketData(); }
+        
+        function addCustomStock(inputSymbol = null) {
+            const inputEl = document.getElementById('symbol-input'); let symbol = inputSymbol || inputEl.value.trim().toUpperCase(); if(!symbol) return;
+            let type = 'US'; if(symbol.includes('.HK')) type = 'HK'; else if(symbol.includes('USDT') || ['BTC','ETH','PEPE','SHIB','DOGE','SOL','FET'].includes(symbol)) { type = 'CRYPTO'; if(!symbol.includes('USDT')) symbol+='USDT'; }
+            if(!portfolios[activeCategory].find(s=>s.symbol===symbol)) { portfolios[activeCategory].unshift({symbol, type, name:'自選'}); saveData(); }
+            inputEl.value=''; loadRealMarketData();
+        }
+
+        // ================= API 數據層 =================
+        async function fetchUSStock(symbol, name) { try { const res = await fetch(`https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${FINNHUB_API_KEY}`); const data = await res.json(); if(data.c) { const obj = {symbol, name:name||'', price:data.c, dp:data.dp, type:'US'}; globalPricesCache[symbol]=obj; return obj; } } catch(e){} return null; }
+        async function fetchCrypto(symbol, name) { try { const res = await fetch(`https://api.binance.com/api/v3/ticker/24hr?symbol=${symbol}`); const data = await res.json(); if(data.lastPrice) { const p = parseFloat(data.lastPrice); const obj = {symbol, name:name||'', price:p, dp:parseFloat(data.priceChangePercent), type:'CRYPTO'}; globalPricesCache[symbol]=obj; return obj; } } catch(e){} return null; }
+        async function fetchHKStock(symbol, name) { try { const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(`https://query1.finance.yahoo.com/v8/finance/chart/${symbol}`)}`); const meta = JSON.parse((await res.json()).contents).chart.result[0].meta; const cp = ((meta.regularMarketPrice - meta.chartPreviousClose)/meta.chartPreviousClose)*100; const obj = {symbol, name:name||'', price:meta.regularMarketPrice, dp:cp, type:'HK'}; globalPricesCache[symbol]=obj; return obj; } catch(e){} return null; }
+
+        function getStockSentiment(stock) {
+            if (globalLatestNews.length === 0) return { sentiment: 'neutral', type: 'technical', reason: "按技術面波幅判斷", url: null };
+            let keyword = stock.symbol.toLowerCase().replace('usdt','');
+            
+            const earnWords = ['earning', 'revenue', 'eps', 'dividend', 'profit', 'guidance', 'report', 'q1', 'q2', 'q3', 'q4', 'sales', '業績', '財報', '盈利'];
+            const pWords = ['surge', 'jump', 'upgrade', 'bull', 'buy', 'record', 'high', 'approve', 'strong', 'beat', 'growth', '勝預期', '增長'];
+            const nWords = ['drop', 'fall', 'downgrade', 'bear', 'sell', 'miss', 'penalty', 'low', 'loss', 'delay', 'weak', 'fraud', '遜預期', '虧損'];
+            
+            for (let news of globalLatestNews) {
+                const hl = news.headline.toLowerCase();
+                if (hl.includes(keyword) || (stock.type==='CRYPTO' && hl.includes('crypto')) || (stock.type==='HK' && (hl.includes('china') || hl.includes('hong kong')))) {
+                    let isEarning = earnWords.some(w => hl.includes(w)); let sentType = isEarning ? 'earnings' : 'news';
+                    if (pWords.some(w => hl.includes(w))) return { sentiment: 'positive', type: sentType, reason: isEarning ? `財報勝預期: "${news.headline}"` : `利好消息: "${news.headline}"`, url: news.url };
+                    if (nWords.some(w => hl.includes(w))) return { sentiment: 'negative', type: sentType, reason: isEarning ? `業績指引差: "${news.headline}"` : `利淡消息: "${news.headline}"`, url: news.url };
+                }
+            }
+            return { sentiment: 'neutral', type: 'technical', reason: "未見基本面異動", url: null };
+        }
+
+        // ================= 🤖 核心 AI 引擎 (雙核解構面板 + 一鍵入倉) =================
+        function generateAIStrategyHTML(stock, scanMode = 'normal') {
+            const cp = stock.price; const dp = stock.dp; const type = stock.type;
+            const cur = type === 'HK' ? 'HK$' : 'US$'; const isUp = dp >= 0;
+            const newsData = getStockSentiment(stock);
+            const refLink = newsData.url ? `<a href="${newsData.url}" target="_blank" class="text-blue-400 hover:text-blue-300 ml-1 underline"><i class="fas fa-external-link-alt"></i> 溯源</a>` : '';
+
+            let recStatus, recColor, entry, target, stop, showPrices = true; let allocatePct = 0.05; let smcBadge = ""; let smcDesc = "";
+
+            let fundBadge = "";
+            if (newsData.type === 'earnings') { fundBadge = newsData.sentiment === 'positive' ? `<span class="text-blue-400 font-bold mr-1"><i class="fas fa-chart-bar"></i> 財報驅動:</span>` : `<span class="text-red-400 font-bold mr-1"><i class="fas fa-bomb"></i> 業績爆雷:</span>`; } 
+            else if (newsData.sentiment !== 'neutral') { fundBadge = `<span class="text-blue-300 font-bold mr-1"><i class="fas fa-newspaper"></i> 消息驅動:</span>`; } 
+            else { fundBadge = `<span class="text-gray-500 font-bold mr-1"><i class="fas fa-minus"></i> 基本面:</span>`; }
+
+            if (scanMode === 'high_rr') {
+                if (Math.abs(dp) < 2.0) showPrices = false; 
+                else {
+                    showPrices = true; allocatePct = 0.05; entry = cp * (dp < 0 ? 0.99 : 1.0); stop = entry * 0.95; 
+                    let potentialGain = type === 'CRYPTO' ? 1.25 : (type === 'US' ? 1.15 : 1.10); target = entry * potentialGain;
+                    recStatus = "🎯 高盈虧比 (以小搏大)"; recColor = "text-purple-400"; smcBadge = `<span class="bg-purple-900/50 text-purple-300 px-1.5 py-0.5 rounded text-[9px] border border-purple-500/30 mr-1"><i class="fas fa-bullseye"></i> High RR</span>`; smcDesc = `嚴格設定 5% 止蝕，適合小注搏取不對稱回報。`;
+                }
+            } else {
+                if (dp <= -3.0) { recStatus = "🟢 OB 撈底"; recColor = "text-green-400"; entry = cp * 0.99; target = cp * 1.08; stop = cp * 0.94; allocatePct = 0.10; smcBadge = `<span class="bg-purple-900/50 text-purple-300 px-1.5 py-0.5 rounded text-[9px] border border-purple-500/30 mr-1"><i class="fas fa-shield-alt"></i> Liq Sweep</span>`; smcDesc = "價格急跌獵取流動性。建議於下方看漲訂單塊 (OB) 掛單。"; } 
+                else if (dp <= -1.5) { recStatus = "🟢 回踩 FVG"; recColor = "text-green-400"; entry = cp * 0.99; target = cp * 1.06; stop = cp * 0.95; allocatePct = 0.05; smcBadge = `<span class="bg-blue-900/50 text-blue-300 px-1.5 py-0.5 rounded text-[9px] border border-blue-500/30 mr-1"><i class="fas fa-magnet"></i> FVG Mitig.</span>`; smcDesc = "正回踩填補前期合理價值缺口 (FVG)，可逢低吸納。"; } 
+                else if (dp >= 3.0) { recStatus = "🟡 BOS 等待回踩"; recColor = "text-yellow-400"; entry = cp * 0.98; target = cp * 1.06; stop = cp * 0.94; allocatePct = 0.05; smcBadge = `<span class="bg-yellow-900/50 text-yellow-300 px-1.5 py-0.5 rounded text-[9px] border border-yellow-500/30 mr-1"><i class="fas fa-level-up-alt"></i> BOS</span>`; smcDesc = "強勢突破結構 (BOS)。切忌現價追高，等待回踩 FVG。"; } 
+                else if (dp >= 1.5) { recStatus = "🟡 測試流動性"; recColor = "text-yellow-400"; entry = cp * 0.99; target = cp * 1.05; stop = cp * 0.96; allocatePct = 0.05; smcBadge = `<span class="bg-red-900/50 text-red-300 px-1.5 py-0.5 rounded text-[9px] border border-red-500/30 mr-1"><i class="fas fa-eye"></i> Buy Liq</span>`; smcDesc = "測試上方買方流動性。提防聰明錢派發。"; } 
+                else { recStatus = "🔴 內部流動性"; recColor = "text-gray-500"; showPrices = false; smcBadge = `<span class="bg-gray-800 text-gray-400 px-1.5 py-0.5 rounded text-[9px] border border-gray-600 mr-1"><i class="fas fa-water"></i> Liq Pool</span>`; smcDesc = "流動性累積區，未有明確方向。嚴格空倉等待。"; }
+
+                if(scanMode === 'high_risk' && Math.abs(dp) > 1.5) { showPrices = true; allocatePct = 0.05; recStatus = dp > 0 ? "🔥 突破追入(高危)" : "🔥 OB 刀口舔血(高危)"; recColor = "text-red-500"; entry = cp; target = cp * 1.10; stop = cp * 0.92; smcDesc = "警告：此為極高風險操作。"; }
+                if(scanMode === 'gems' && Math.abs(dp) > 1.0) { showPrices = true; allocatePct = 0.05; recStatus = dp > 0 ? "💎 潛力突破" : "💎 逢低吸納"; recColor = "text-purple-400"; entry = cp * 0.98; target = cp * 1.15; stop = cp * 0.90; smcDesc = "潛力資產異動，適合小注佈局。"; }
+            }
+
+            if (dp <= -1.5 && newsData.type === 'earnings' && newsData.sentiment === 'negative') {
+                recStatus = "❌ 放棄撈底"; recColor = "text-red-500"; showPrices = false; smcDesc = "嚴重警告：基本面惡化導致大跌，OB 防線大概率被擊穿，切勿接刀！";
+            }
+
+            let rrRatioCalc = (showPrices && entry !== stop) ? Math.abs((target - entry) / (entry - stop)).toFixed(1) : "0.0";
+            let strategyContent = '';
+            if (showPrices) {
+                let allocateHKD = myVault.cashActive * allocatePct; let sharesInfo = "";
+                if (type === 'US' || type === 'CRYPTO') {
+                    let allocateUSD = allocateHKD / USD_TO_HKD; let shares = allocateUSD / entry; sharesInfo = `約 US$${allocateUSD.toFixed(1)}，可買 <b>${shares.toFixed(4)}</b> 股`;
+                } else { sharesInfo = `建議預算 <b>HK$${allocateHKD.toFixed(0)}</b> <span class="text-[9px] text-gray-500">(港股無碎股)</span>`; }
+
+                // 🌟 新增：一鍵記錄至持倉的按鈕 (聯動 quickAddHolding)
+                strategyContent = `
+                    <div class="grid grid-cols-3 gap-1 text-center text-[10px] mt-2 relative">
+                        <div class="absolute -top-2 -right-1"><span class="bg-purple-600 text-white px-1 py-[1px] rounded text-[8px] shadow-md font-bold border border-purple-400">RR 1:${rrRatioCalc}</span></div>
+                        <div class="bg-gray-800 py-1.5 rounded border border-blue-500/30"><span class="block text-gray-500">掛單買入</span><span class="font-bold text-blue-400">${cur}${formatPrice(entry)}</span></div>
+                        <div class="bg-gray-800 py-1.5 rounded"><span class="block text-gray-500">目標止賺</span><span class="font-bold text-green-400">${cur}${formatPrice(target)}</span></div>
+                        <div class="bg-gray-800 py-1.5 rounded"><span class="block text-gray-500">結構止蝕</span><span class="font-bold text-red-400">${cur}${formatPrice(stop)}</span></div>
+                    </div>
+                    <div class="text-[10px] text-gray-300 mt-2 flex flex-col bg-blue-900/20 p-2 rounded border border-blue-500/20">
+                        <div class="flex items-center mb-1"><i class="fas fa-shield-alt mr-1 text-yellow-400"></i>分注紀律: 動用主動池 ${(allocatePct*100).toFixed(0)}% (HK$${allocateHKD.toFixed(0)})</div>
+                        <div class="flex items-center"><i class="fas fa-shopping-cart mr-1 text-blue-400"></i>${sharesInfo}</div>
+                    </div>
+                    <button onclick="quickAddHolding('${stock.symbol}', '${type}', ${entry.toFixed(4)})" class="w-full mt-2 bg-gradient-to-r from-blue-700 to-blue-600 hover:from-blue-600 hover:to-blue-500 text-white py-1.5 rounded text-xs font-bold shadow-md transition-colors border border-blue-400/50">
+                        <i class="fas fa-briefcase mr-1"></i> 一鍵買入至主動持倉
+                    </button>`;
+            }
+            
+            let marketTag = "";
+            if (type === 'US') marketTag = `<span class="bg-blue-900 text-blue-300 px-1 py-0.5 rounded text-[8px] ml-2">US</span>`;
+            if (type === 'HK') marketTag = `<span class="bg-red-900 text-red-300 px-1 py-0.5 rounded text-[8px] ml-2">HK</span>`;
+            if (type === 'CRYPTO') marketTag = `<span class="bg-yellow-900 text-yellow-300 px-1 py-0.5 rounded text-[8px] ml-2">CRYPTO</span>`;
+
+            return {
+                baseHTML: `
+                    <div class="flex justify-between items-start mb-1">
+                        <div>
+                            <h3 class="font-bold text-base">${stock.symbol}${marketTag}</h3>
+                            <p class="text-[10px] text-gray-400">${stock.name||''}</p>
+                            <p class="text-lg font-mono mt-0.5">${cur} ${formatPrice(cp)}</p>
+                        </div>
+                        <div class="text-right">
+                            <span class="${isUp?'text-green-400':'text-red-400'} text-xs font-bold bg-gray-900 px-2 py-1 rounded border border-gray-700">${dp>0?'+':''}${dp.toFixed(2)}%</span>
+                            <button onclick="deleteStock('${stock.symbol}')" class="ml-2 text-gray-600 hover:text-red-500"><i class="fas fa-trash text-xs"></i></button>
+                        </div>
+                    </div>`,
+                strategyHTML: `
+                    <div class="mt-2 pt-2 border-t border-gray-700/50">
+                        <div class="flex items-center mb-1.5 border-b border-gray-700/50 pb-1">
+                            <span class="font-bold ${recColor} text-xs tracking-wide">${recStatus}</span>
+                        </div>
+                        <div class="space-y-1.5 mb-2">
+                            <div class="text-[10px] text-gray-300 leading-tight"><span class="text-purple-300 font-bold mr-1"><i class="fas fa-project-diagram"></i> SMC:</span>${smcBadge} <span class="text-gray-400">${smcDesc}</span></div>
+                            <div class="text-[10px] text-gray-300 leading-tight">${fundBadge} <span class="italic text-gray-400">${newsData.reason}</span> ${refLink}</div>
+                        </div>
+                        ${strategyContent}
+                    </div>`,
+                showPrices: showPrices, entryVal: entry, targetVal: target, stopVal: stop, rrRatio: rrRatioCalc 
+            };
+        }
+
+        // ================= 🌟 歷史紀錄功能 =================
+        function toggleHistory() { document.getElementById('scan-history-container').classList.toggle('hidden'); renderHistory(); }
+        function toggleSectorHistory() { document.getElementById('sector-history-container').classList.toggle('hidden'); renderSectorHistory(); }
+        function toggleEventHistory() { document.getElementById('event-history-container').classList.toggle('hidden'); renderEventHistory(); }
+
+        function renderHistory() {
+            const listEl = document.getElementById('history-list'); listEl.innerHTML = '';
+            if (scanHistory.length === 0) { listEl.innerHTML = `<div class="text-xs text-gray-500 text-center py-2">暫無掃描紀錄</div>`; return; }
+            scanHistory.forEach(record => {
+                const dateStr = new Date(record.time).toLocaleString('zh-Hant', { hour12: false, month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+                const modeStr = record.mode === 'high_rr' ? '<span class="text-pink-400 font-bold">🎯 高RR以小搏大</span>' : '<span class="text-blue-400 font-bold">🚀 常規勝率掃描</span>';
+                let itemsHtml = record.results.map(r => `<div class="flex justify-between items-center text-[10px] mt-1.5 border-t border-gray-700/50 pt-1.5"><div class="w-20"><span class="font-bold text-white block">${r.symbol}</span><span class="text-purple-400 font-bold text-[8px] bg-purple-900/30 px-1 rounded border border-purple-500/30">RR 1:${r.rr}</span></div><div class="flex-1 text-right space-x-2 font-mono"><span class="text-gray-400">入 <span class="text-blue-400">${formatPrice(r.entry)}</span></span> <span class="text-gray-400">賺 <span class="text-green-400">${formatPrice(r.target)}</span></span> <span class="text-gray-400">蝕 <span class="text-red-400">${formatPrice(r.stop)}</span></span></div></div>`).join('');
+                listEl.innerHTML += `<div class="bg-gray-900 p-2.5 rounded-lg border border-gray-700 text-xs shadow-inner"><div class="flex justify-between text-gray-400 mb-1"><span>${modeStr}</span><span>${dateStr}</span></div>${itemsHtml}</div>`;
+            });
+        }
+
+        function renderSectorHistory() {
+            const listEl = document.getElementById('sector-history-list'); listEl.innerHTML = '';
+            if (sectorHistory.length === 0) { listEl.innerHTML = `<div class="text-xs text-gray-500 text-center py-2">暫無板塊切換紀錄</div>`; return; }
+            sectorHistory.forEach(record => {
+                const dateStr = new Date(record.time).toLocaleString('zh-Hant', { hour12: false, month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+                let newsHtml = record.news.map(n => `<a href="${n.url}" target="_blank" class="text-[9px] text-blue-400 hover:underline truncate mt-0.5 block"><i class="fas fa-caret-right"></i> ${n.headline}</a>`).join('');
+                listEl.innerHTML += `<div class="bg-gray-800/80 p-2 rounded border border-gray-700 text-xs"><div class="flex justify-between items-center mb-1"><span class="font-bold text-white">${record.name}</span><span class="text-[9px] text-gray-500">${dateStr}</span></div>${newsHtml}</div>`;
+            });
+        }
+
+        function renderEventHistory() {
+            const listEl = document.getElementById('event-history-list'); listEl.innerHTML = '';
+            if (eventHistory.length === 0) { listEl.innerHTML = `<div class="text-xs text-gray-500 text-center py-2">暫無突發異動紀錄</div>`; return; }
+            eventHistory.forEach(record => {
+                const dateStr = new Date(record.time).toLocaleString('zh-Hant', { hour12: false, month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+                listEl.innerHTML += `<div class="bg-gray-900 p-2.5 rounded-lg border border-orange-500/30 text-xs shadow-inner mb-2"><div class="flex justify-between items-center mb-1"><span class="font-bold text-orange-400">🔥 ${record.ticker}</span><span class="text-[9px] text-gray-500">${dateStr}</span></div><a href="${record.news.url}" target="_blank" class="text-[10px] text-gray-300 hover:text-white hover:underline line-clamp-2"><i class="fas fa-newspaper text-blue-400 mr-1"></i>${record.news.headline}</a></div>`;
+            });
+        }
+
+        function clearHistory() { if (confirm('確定清空掃描紀錄？')) { scanHistory = []; saveData(); renderHistory(); } }
+        function clearSectorHistory() { if (confirm('確定清空板塊歷史？')) { sectorHistory = []; saveData(); renderSectorHistory(); } }
+        function clearEventHistory() { if (confirm('確定清空異動歷史？')) { eventHistory = []; saveData(); renderEventHistory(); } }
+
+        // ================= 🌟 全網掃描器 =================
+        const usPool = ['NVDA','AAPL','TSLA','MSFT','AMD','META','GOOGL','COIN','PLTR','SMCI','MSTR','ARM','UBER','NFLX','CRWD','RST','MARA','RIOT', 'SOUN', 'ASTS', 'UPST', 'CELH', 'IONQ', 'CVNA', 'SYM', 'VKTX', 'SOFI', 'AFRM', 'RKLB'];
+        const hkPool = ['0700.HK','3690.HK','9988.HK','1810.HK','2015.HK','9868.HK','9866.HK','0981.HK','0883.HK','1024.HK','0020.HK','1299.HK','0388.HK', '0772.HK', '0241.HK', '1347.HK', '6618.HK', '2469.HK', '0992.HK', '0268.HK', '9992.HK', '6690.HK'];
+
+        async function scanGlobalMarkets(mode = 'normal') {
+            const statusEl = document.getElementById('scanner-status'); const resultsEl = document.getElementById('scanner-results');
+            statusEl.classList.remove('hidden'); resultsEl.innerHTML = '';
+            
+            try {
+                const cryptoRes = await fetch('https://api.binance.com/api/v3/ticker/24hr'); const cryptoData = await cryptoRes.json();
+                const hotCryptos = cryptoData.filter(d => d.symbol.endsWith('USDT') && parseFloat(d.quoteVolume) > 10000000 && Math.abs(parseFloat(d.priceChangePercent)) >= 4.0);
+                hotCryptos.sort(() => 0.5 - Math.random()); hotCryptos.sort((a,b) => Math.abs(parseFloat(b.priceChangePercent)) - Math.abs(parseFloat(a.priceChangePercent)));
+                const topCryptoPicks = hotCryptos.slice(0, 3).map(d => ({ symbol: d.symbol, price: parseFloat(d.lastPrice), dp: parseFloat(d.priceChangePercent), type: 'CRYPTO' }));
+
+                const usShuffled = [...usPool].sort(() => 0.5 - Math.random()).slice(0, 8);
+                const usPromises = usShuffled.map(sym => fetchUSStock(sym)); const usResults = (await Promise.all(usPromises)).filter(i => i !== null);
+
+                const hkShuffled = [...hkPool].sort(() => 0.5 - Math.random()).slice(0, 8);
+                const hkPromises = hkShuffled.map(sym => fetchHKStock(sym)); const hkResults = (await Promise.all(hkPromises)).filter(i => i !== null);
+
+                let combinedResults = [...topCryptoPicks, ...usResults, ...hkResults];
+                combinedResults.sort((a,b) => Math.abs(b.dp) - Math.abs(a.dp));
+
+                let foundCount = 0; let successfulScans = [];
+
+                combinedResults.forEach(stock => {
+                    const aiRender = generateAIStrategyHTML(stock, mode);
+                    if (aiRender.showPrices) {
+                        let borderColor = mode === 'high_rr' ? 'border-pink-500' : 'border-blue-500'; 
+                        resultsEl.innerHTML += `<div class="bg-gray-800/80 p-4 rounded-xl border-l-4 ${borderColor} shadow-[0_4px_10px_rgba(0,0,0,0.3)] mb-3 transition-all hover:bg-gray-700 hover:-translate-y-1">${aiRender.baseHTML}${aiRender.strategyHTML}</div>`; 
+                        foundCount++; successfulScans.push({ symbol: stock.symbol, entry: aiRender.entryVal, target: aiRender.targetVal, stop: aiRender.stopVal, rr: aiRender.rrRatio });
+                    }
+                });
+
+                if (foundCount === 0) {
+                    resultsEl.innerHTML = `<div class="bg-gray-800/50 p-3 rounded-xl border-l-4 border-gray-600 shadow-sm mb-2 opacity-70"><div class="text-xs text-gray-400">※ 波幅或基本面不足以觸發 ${mode === 'high_rr' ? '高 RR' : '常規'} 策略，建議保留資金。</div></div>`;
+                } else {
+                    scanHistory.unshift({ time: new Date().getTime(), mode: mode, results: successfulScans.slice(0, 5) });
+                    if (scanHistory.length > 15) scanHistory.pop(); saveData(); renderHistory(); 
+                }
+            } catch(e) { resultsEl.innerHTML = `<div class="text-red-400">連接全球數據庫失敗。</div>`; }
+            statusEl.classList.add('hidden'); updateVaultUI(globalPricesCache);
+        }
+
+        // ================= 🌟 動態催化劑捕捉器 =================
+        function analyzeDynamicCatalysts() {
+            const containerEl = document.getElementById('thematic-event-container'); const monitorEl = document.getElementById('thematic-monitor');
+            containerEl.classList.remove('hidden');
+            if (globalLatestNews.length === 0) { monitorEl.innerHTML = `<div class="text-center py-4 text-xs text-orange-500/70"><i class="fas fa-satellite-dish mr-2"></i>全網監控中... 目前未發現突發異動。</div>`; return; }
+
+            const explosiveWords = ['surge', 'jump', 'soar', 'skyrocket', 'upgrade', 'approve', 'acquire', 'buyout', 'breakthrough', 'record high', 'rally', '暴漲', '急升', '獲批', '收購'];
+            const nameMap = { 'apple': 'AAPL', 'tesla': 'TSLA', 'nvidia': 'NVDA', 'microsoft': 'MSFT', 'amazon': 'AMZN', 'google': 'GOOGL', 'meta': 'META', 'bitcoin': 'BTCUSDT', 'ethereum': 'ETHUSDT', 'solana': 'SOLUSDT', 'microstrategy': 'MSTR', 'palantir': 'PLTR', 'coinbase': 'COIN', 'super micro': 'SMCI', 'soundhound': 'SOUN', 'rocket lab': 'RKLB', 'tencent': '0700.HK', 'alibaba': '9988.HK', 'meituan': '3690.HK' };
+            const allSymbols = [...usPool, ...hkPool.map(t=>t.replace('.HK','')), 'BTC', 'ETH', 'SOL', 'PEPE', 'DOGE'];
+
+            let detectedCatalyst = null;
+
+            for (let news of globalLatestNews) {
+                const hl = news.headline.toLowerCase();
+                if (explosiveWords.some(w => hl.includes(w))) {
+                    let matchedTicker = null;
+                    for (const [name, ticker] of Object.entries(nameMap)) { if (hl.includes(name)) { matchedTicker = ticker; break; } }
+                    if (!matchedTicker) { for (const sym of allSymbols) { const regex = new RegExp(`\\b${sym.toLowerCase()}\\b`); if (regex.test(hl)) { matchedTicker = sym.includes('USDT') ? sym : (hkPool.includes(sym+'.HK') ? sym+'.HK' : sym); break; } } }
+                    if (matchedTicker) { detectedCatalyst = { ticker: matchedTicker, news: news }; break; }
+                }
+            }
+
+            if (detectedCatalyst) {
+                let lastEvent = eventHistory.length > 0 ? eventHistory[0] : null;
+                if (!lastEvent || lastEvent.news.headline !== detectedCatalyst.news.headline) {
+                    eventHistory.unshift({ time: new Date().getTime(), ticker: detectedCatalyst.ticker, news: detectedCatalyst.news });
+                    if (eventHistory.length > 15) eventHistory.pop(); saveData(); renderEventHistory();
+                }
+
+                containerEl.classList.add('pulse-border');
+                monitorEl.innerHTML = `
+                    <div class="bg-gray-900/60 p-3 rounded-xl border border-orange-500/30">
+                        <h3 class="text-base font-bold text-white mb-2">🔥 突發異動追蹤: ${detectedCatalyst.ticker}</h3>
+                        <p class="text-xs text-gray-300 mb-3">系統偵測到 ${detectedCatalyst.ticker} 出現重大利好，資金可能正在急劇湧入。</p>
+                        <div class="bg-gray-800/80 p-2 rounded border border-gray-700 mb-3"><span class="text-[10px] text-orange-400 font-bold">觸發來源：</span><a href="${detectedCatalyst.news.url}" target="_blank" class="text-orange-300 hover:text-orange-200 hover:underline text-[10px] block truncate mt-1"><i class="fas fa-link"></i> ${detectedCatalyst.news.headline}</a></div>
+                        <div id="dynamic-catalyst-action" class="text-center"><button onclick="fetchAndDisplayCatalyst('${detectedCatalyst.ticker}')" class="bg-orange-600 hover:bg-orange-500 text-white px-4 py-2 rounded-lg text-xs font-bold shadow-md transition-colors"><i class="fas fa-bolt"></i> 即時提取報價及 SMC 策略</button></div>
+                    </div>`;
+            } else {
+                containerEl.classList.remove('pulse-border');
+                monitorEl.innerHTML = `<div class="text-center py-4 text-xs text-orange-500/70"><i class="fas fa-satellite-dish mr-2"></i>全網監控中... 目前未發現突發異動。</div>`;
+            }
+        }
+
+        async function fetchAndDisplayCatalyst(symbol) {
+            const actionEl = document.getElementById('dynamic-catalyst-action');
+            actionEl.innerHTML = `<span class="text-xs text-orange-400 animate-pulse"><i class="fas fa-spinner fa-spin"></i> 正在分析 ${symbol} 盤面結構...</span>`;
+            
+            let type = 'US'; if(symbol.includes('.HK')) type = 'HK'; else if(symbol.includes('USDT') || ['BTC','ETH'].includes(symbol)) type = 'CRYPTO';
+            let stockData = null;
+            if(type==='US') stockData = await fetchUSStock(symbol); if(type==='CRYPTO') stockData = await fetchCrypto(symbol); if(type==='HK') stockData = await fetchHKStock(symbol);
+            
+            if (stockData) {
+                const aiRender = generateAIStrategyHTML(stockData, 'normal'); const curSym = type === 'HK' ? 'HK$' : 'US$';
+                let priceText = aiRender.showPrices ? `入: ${curSym}${formatPrice(aiRender.entryVal)}` : `現: ${curSym}${formatPrice(stockData.price)}`;
+                actionEl.innerHTML = `<button onclick="addCustomStock('${symbol}');" class="w-full inline-flex items-center justify-center bg-gradient-to-r from-orange-700 to-red-600 hover:from-orange-600 hover:to-red-500 text-white px-4 py-2.5 rounded-lg text-sm font-bold shadow-lg border border-orange-400/50 transition-colors"><i class="fas fa-plus mr-2"></i> 將 ${symbol} 加入名單 <span class="bg-gray-900/50 px-2 py-0.5 rounded ml-2 text-[10px] border border-white/20">${priceText}</span></button>`;
+            } else { actionEl.innerHTML = `<span class="text-xs text-red-400">無法獲取報價，請手動加入。</span>`; }
+        }
+
+        // ================= 🌟 AI 板塊輪動 =================
+        const sectorsDef = [
+            { id: 'AI', name: '🧠 半導體與人工智能', keywords: ['ai', 'chip', 'semiconductor', 'nvidia', 'intel', 'tech', 'amd', 'smci', 'server', 'gpu', 'openai'], tickers: ['NVDA', 'AMD', 'SMCI', 'SOUN'] },
+            { id: 'SAAS', name: '☁️ 雲端運算與軟件', keywords: ['cloud', 'saas', 'software', 'microsoft', 'google', 'aws', 'crm', 'salesforce', 'azure'], tickers: ['MSFT', 'GOOGL', 'PLTR'] },
+            { id: 'CYBER', name: '🛡️ 網絡安全', keywords: ['cyber', 'security', 'hack', 'breach', 'firewall', 'crowdstrike', 'palo alto'], tickers: ['CRWD', 'PANW'] },
+            { id: 'CRYPTO', name: '🪙 區塊鏈與加密資產', keywords: ['crypto', 'bitcoin', 'sec', 'etf', 'binance', 'ethereum', 'coinbase', 'blockchain'], tickers: ['BTCUSDT', 'COIN', 'MSTR'] },
+            { id: 'EV', name: '🚗 新能源與出行', keywords: ['ev', 'auto', 'tesla', 'car', 'vehicle', 'battery', 'nio', 'xpeng', 'li auto', 'byd', 'autonomous'], tickers: ['TSLA', '2015.HK', '9868.HK'] },
+            { id: 'FIN', name: '🏦 金融與銀行', keywords: ['bank', 'financial', 'jpmorgan', 'visa', 'mastercard', 'payment', 'credit'], tickers: ['JPM', 'V', '0005.HK'] },
+            { id: 'DEFAULT', name: '📊 宏觀大盤指數', keywords: ['market', 'stock', 'index', 'spy', 'qqq', 'dow', 'nasdaq'], tickers: ['VOO', 'QQQM', '2800.HK'] }
+        ];
+
+        async function analyzeSectors() {
+            analyzeDynamicCatalysts(); 
+            const monitorEl = document.getElementById('sector-monitor');
+            if (globalLatestNews.length === 0) { await fetchUSStock('VOO'); monitorEl.innerHTML = `<div class="text-xs text-gray-400">目前未有重大新聞，AI 將依靠 VOO/QQQM 進行大盤分析。</div>`; return; }
+            
+            const allNewsText = globalLatestNews.map(n => n.headline.toLowerCase() + " " + n.summary.toLowerCase()).join(" ");
+            let sectorScores = sectorsDef.map(sector => {
+                let score = 0; let relatedNews = [];
+                globalLatestNews.forEach(news => { let headline = news.headline.toLowerCase(); if (sector.keywords.some(kw => headline.includes(kw))) { score++; relatedNews.push(news); } });
+                return { ...sector, score, relatedNews };
+            });
+
+            sectorScores.sort((a,b) => b.score - a.score); let hotSector = sectorScores[0];
+            if (hotSector.score === 0) hotSector = sectorScores.find(s => s.id === 'DEFAULT');
+
+            let lastSectorId = sectorHistory.length > 0 ? sectorHistory[0].id : '';
+            if (hotSector.id !== 'DEFAULT' && hotSector.id !== lastSectorId) {
+                sectorHistory.unshift({ time: new Date().getTime(), id: hotSector.id, name: hotSector.name, news: hotSector.relatedNews.slice(0,2) });
+                if (sectorHistory.length > 15) sectorHistory.pop(); saveData(); renderSectorHistory();
+            }
+
+            let tickerHtml = hotSector.tickers.map(t => `<span class="inline-block bg-gray-800 text-purple-300 px-2 py-1 rounded text-[10px] font-mono mr-1 mb-1 border border-purple-500/30">${t}</span>`).join('');
+            let newsLinksHtml = "";
+            if (hotSector.relatedNews && hotSector.relatedNews.length > 0) {
+                newsLinksHtml = hotSector.relatedNews.slice(0, 2).map(n => `<a href="${n.url}" target="_blank" class="text-blue-400 hover:text-blue-300 hover:underline text-[10px] block truncate mt-1"><i class="fas fa-link"></i> ${n.headline}</a>`).join('');
+            } else { newsLinksHtml = `<span class="text-[10px] text-gray-500 block mt-1">※ 綜合近期走勢分析得出。</span>`; }
+
+            monitorEl.innerHTML = `
+                <h3 class="text-base font-bold text-white mb-1">${hotSector.name} <span class="text-[10px] bg-red-600 text-white px-1.5 rounded ml-1 animate-pulse">HOT</span></h3>
+                <div class="flex flex-wrap mb-2">${tickerHtml}</div>
+                <div class="bg-gray-800/50 p-2 rounded border border-gray-700">
+                    <span class="text-[10px] text-gray-400 font-bold">觸發來源分析：</span>
+                    ${newsLinksHtml}
+                </div>
+            `;
+        }
+
+        async function loadRealMarketData() {
+            document.getElementById('update-status').innerText = '● 同步中...';
+            await fetchUSStock('VOO'); await fetchUSStock('QQQM');
+
+            const currentList = portfolios[activeCategory] || [];
+            if (currentList.length > 0) {
+                const fetchPromises = currentList.map(item => { if(item.type==='US') return fetchUSStock(item.symbol, item.name); if(item.type==='CRYPTO') return fetchCrypto(item.symbol, item.name); if(item.type==='HK') return fetchHKStock(item.symbol, item.name);});
+                const results = (await Promise.all(fetchPromises)).filter(i => i !== null);
+                results.sort((a,b) => Math.abs(b.dp) - Math.abs(a.dp));
+                
+                let scanMode = 'normal';
+                if (activeCategory === "⚠️ 高風險高回報") scanMode = 'high_risk';
+                if (activeCategory === "💎 冷門尋寶") scanMode = 'gems';
+                
+                document.getElementById('stock-list').innerHTML = '';
+                results.forEach(stock => {
+                    const aiRender = generateAIStrategyHTML(stock, scanMode);
+                    document.getElementById('stock-list').innerHTML += `<div class="bg-gray-800 p-3 rounded-xl border border-gray-700 mb-2 shadow-sm hover:border-gray-500 transition-colors">${aiRender.baseHTML}${aiRender.strategyHTML}</div>`;
+                });
+            } else { document.getElementById('stock-list').innerHTML = '<div class="text-center p-6 text-gray-500">此分類暫無股票</div>'; }
+            
+            document.getElementById('update-status').innerText = `● 準備就緒`;
+            updateVaultUI(globalPricesCache); 
+        }
+
+        async function fetchMarketNews() {
+            try {
+                const res = await fetch(`https://finnhub.io/api/v1/news?category=general&token=${FINNHUB_API_KEY}`); globalLatestNews = await res.json();
+                const newsContainer = document.getElementById('news-list'); newsContainer.innerHTML = '';
+                globalLatestNews.slice(0, 10).forEach(news => {
+                    newsContainer.innerHTML += `
+                        <div class="bg-gray-800 p-3 rounded-lg hover:bg-gray-750 border border-gray-700/50 flex space-x-3 transition-colors">
+                            ${news.image ? `<img src="${news.image}" class="w-16 h-16 object-cover rounded-md" onerror="this.style.display='none'">` : ''}
+                            <div class="flex-1 flex flex-col justify-between">
+                                <h4 class="text-sm font-bold text-gray-200 leading-tight mb-2 line-clamp-2">${news.headline}</h4>
+                                <div class="flex justify-between items-center text-[10px] text-gray-500">
+                                    <div class="space-x-2">
+                                        <span class="bg-gray-900 px-1.5 py-0.5 rounded">${news.source}</span>
+                                        <span>${new Date(news.datetime * 1000).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</span>
+                                    </div>
+                                    <a href="${news.url}" target="_blank" class="text-blue-400 hover:text-blue-300 font-bold bg-blue-900/30 px-2 py-1 rounded shadow-sm"><i class="fas fa-link"></i> 原文</a>
+                                </div>
+                            </div>
+                        </div>`;
+                });
+                analyzeSectors(); loadRealMarketData(); 
+            } catch(e){}
+        }
+
+        window.onload = () => { 
+            updateVaultUI(); renderCategories(); fetchMarketNews(); refreshHoldingsPrices();
+            setInterval(() => { fetchMarketNews(); refreshHoldingsPrices(); }, 60000); 
+        };
+    </script>
+</body>
+</html>
