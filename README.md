@@ -1,2 +1,0 @@
-# Investsmart
-Investment AI
